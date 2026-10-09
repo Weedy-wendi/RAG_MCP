@@ -1,0 +1,126 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# QA Test credentials and config backups
+config/test_credentials.yaml
+config/settings.yaml.qa_backup
+config/settings.yaml.bak
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Project-specific
+data/
+cache/
+logs/
+*.log
+traces.jsonl
+
+# Generated RAG test corpus: 100 synthetic PDFs plus the standard answer bank.
+# Regenerate deterministically with:
+#   python tests/fixtures/corpus_gen/build_corpus.py
+# It sits at the repo root rather than under data/ because the DSH file sandbox
+# only provisions write access for paths directly at the workspace root.
+test_corpus/
+
+# Auto-coder skill cache
+.github/skills/auto-coder/.spec_hash
+
+# Secrets
+.env.local
+.env.*.local
+secrets.yaml
+nonexistent_traces.jsonl/
+
+# WorkBuddy / agent local workspace data (memory logs + scratch scripts)
+.workbuddy/
+
+# Personal resume / job-hunting documents (NOT for public upload)
+resume_project_experience.md
+docs/resume-project-experience-zh.md
+
+# Project-embedded agent skills (excluded from public upload)
+.github/skills/
+.claude/skills/
+

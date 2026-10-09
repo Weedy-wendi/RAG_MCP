@@ -1,0 +1,137 @@
+# Modular RAG MCP Server - Configuration
+# This is the main configuration file for the MCP Server.
+# Edit this file to configure LLM, Embedding, VectorStore, and other services.
+
+# =============================================================================
+# LLM Configuration
+# =============================================================================
+# NOTE: 当前最小闭环（摄取 + 检索）不需要 LLM，保持占位即可。
+llm:
+  provider: "openai"  # Options: openai, azure, ollama, deepseek
+  model: "gpt-4o"
+  deployment_name: "gpt-4o"
+  azure_endpoint: "https://YOUR_ENDPOINT.openai.azure.com/"
+  api_version: "2024-02-15-preview"
+  api_key: "YOUR_API_KEY_HERE"
+  temperature: 0.0
+  max_tokens: 4096
+
+# =============================================================================
+# Embedding Configuration
+# =============================================================================
+# 本地 Ollama，模型 nomic-embed-text:latest（768 维）。
+# 完全离线、无 API 费用、不受云端配额限制。
+#
+# 前置：服务需在运行（`ollama serve`，或启动 Ollama 桌面应用），
+#       模型需已拉取（`ollama pull nomic-embed-text`）。
+#
+# 选型依据（本机 16 核纯 CPU 实测，1000 字符输入）：
+#
+#   模型                     维度   中文耗时   英文耗时   中文区分度
+#   nomic-embed-text         768    1564 ms     731 ms     +0.217
+#   qwen3-embedding:0.6b    1024    3390 ms    1462 ms     +0.580
+#
+# nomic 快约 2.2 倍，中文可用（匹配段与无关段的余弦间隔为正且明显），
+# 但中文语义分辨力明显弱于 qwen3。若之后更看重中文检索质量，把 model 改回
+# qwen3-embedding:0.6b、dimensions 改为 1024 即可 —— 但换模型会让已有向量失效，
+# 必须清空 data/db/chroma 与 data/db/bm25 后重新摄取。
+#
+# 关于当前实现的三个要点：
+#  1. OllamaEmbedding 走的是旧版 /api/embeddings 端点，并且对每个文本单独发一次
+#     请求，所以 batch_size 不会减少请求数。新版 /api/embed 支持一次提交多条，
+#     但在纯 CPU 上实测无加速（单请求已吃满 CPU，并发仅 x1.13），故未改造。
+#  2. OllamaEmbedding 不读取下面的 base_url，实际取值顺序为
+#     「构造参数 > OLLAMA_BASE_URL 环境变量 > http://localhost:11434」。
+#     本机即 localhost，所以此字段仅作记录。
+#  3. dimensions 不会传给 Ollama，仅用于声明与校验，必须与模型真实维度一致。
+embedding:
+  provider: "ollama"
+  model: "nomic-embed-text:latest"
+  dimensions: 768
+  base_url: "http://localhost:11434"
+  # 本地模型无需 API Key。原先在此的百炼明文 Key 已移除。
+
+# =============================================================================
+# Vision LLM Configuration (for Image Captioning)
+# =============================================================================
+vision_llm:
+  enabled: false  # 最小闭环先关闭图片描述，避免调用视觉模型
+  provider: "openai"  # Options: openai, azure, ollama
+  model: "gpt-4o"  # Options: gpt-4o, gpt-4-vision-preview (OpenAI), llava (Ollama)
+  azure_endpoint: "https://YOUR_ENDPOINT.openai.azure.com/"
+  deployment_name: "gpt-4o"
+  api_version: "2024-02-15-preview"
+  api_key: "YOUR_API_KEY_HERE"
+  # Ollama-specific settings (if provider is ollama):
+  # base_url: "http://localhost:11434"
+  max_image_size: 2048  # Max dimension (width/height) for image compression
+
+# =============================================================================
+# Vector Store Configuration
+# =============================================================================
+vector_store:
+  provider: "chroma"  # Options: chroma, qdrant, pinecone
+  persist_directory: "./data/db/chroma"
+  collection_name: "knowledge_hub"
+
+# =============================================================================
+# Retrieval Configuration
+# =============================================================================
+retrieval:
+  dense_top_k: 20
+  sparse_top_k: 20
+  fusion_top_k: 10
+  rrf_k: 60  # RRF constant
+
+# =============================================================================
+# Rerank Configuration
+# =============================================================================
+rerank:
+  enabled: false
+  provider: "none"  # Options: none, cross_encoder, llm
+  model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  top_k: 5
+
+# =============================================================================
+# Evaluation Configuration
+# =============================================================================
+# enabled=false 时 EvaluatorFactory 会返回 NoneEvaluator，scripts/evaluate.py
+# 的报告里只有 "(no metrics computed)"，所以真正跑评估必须置为 true。
+evaluation:
+  enabled: true
+  provider: "custom"  # Options: ragas, deepeval, custom
+  # CustomEvaluator 只实现了 hit_rate 与 mrr。把 faithfulness 留在这里会让它在
+  # 构造时就抛 ValueError（faithfulness 属于 Ragas 的 LLM-as-Judge 指标，需要
+  # 配置真实 LLM；本项目 llm 段仍是占位符）。
+  metrics:
+    - "hit_rate"
+    - "mrr"
+
+# =============================================================================
+# Observability Configuration
+# =============================================================================
+observability:
+  log_level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
+  trace_enabled: true
+  trace_file: "./logs/traces.jsonl"
+  structured_logging: true
+
+# =============================================================================
+# Ingestion Configuration
+# =============================================================================
+ingestion:
+  chunk_size: 1000
+  chunk_overlap: 200
+  splitter: "recursive"  # Options: recursive, semantic, fixed_length
+  # DashScope text-embedding-v2 单次请求最多 25 行，这里保守设为 10。
+  batch_size: 10
+
+  # Chunk Refiner Configuration (C5)
+  chunk_refiner:
+    use_llm: false  # 关闭 LLM 增强，走规则兜底（摄取阶段不调 LLM）
+    # When use_llm is false or LLM call fails, falls back to rule-based refinement
+
+  # Metadata Enricher Configuration (C6)
+  metadata_enricher:
+    use_llm: false  # 关闭 LLM 增强，走规则兜底（摄取阶段不调 LLM）
+    # When use_llm is false or LLM call fails, falls back to rule-based enrichment
